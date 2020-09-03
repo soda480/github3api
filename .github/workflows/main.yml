@@ -1,0 +1,39 @@
+name: build
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-16.04
+    container: python:3.6-alpine
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install required packages
+      run: apk add git gcc
+
+    - name: Install pybuilder
+      run: pip install pybuilder==0.11.17
+
+    - name: Install dependencies
+      run: pyb install_dependencies
+
+    - name: Execute build
+      run: pyb install
+
+    - name: Install Codecov requirements
+      run: |
+        apk update
+        apk add bash curl
+        sed -e 's,filename="github3api/,filename="src/main/python/github3api/,g' target/reports/coverage.xml > coverage.xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: coverage.xml

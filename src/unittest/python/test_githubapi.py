@@ -1,0 +1,332 @@
+
+# Copyright (c) 2020 Intel Corporation
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import unittest
+from mock import patch
+from mock import mock_open
+from mock import call
+from mock import Mock
+
+from github3api import GitHubAPI
+
+from datetime import datetime
+
+from requests.exceptions import HTTPError
+
+import sys
+import logging
+logger = logging.getLogger(__name__)
+
+consoleHandler = logging.StreamHandler(sys.stdout)
+logFormatter = logging.Formatter("%(asctime)s %(threadName)s %(name)s [%(funcName)s] %(levelname)s %(message)s")
+consoleHandler.setFormatter(logFormatter)
+rootLogger = logging.getLogger()
+rootLogger.addHandler(consoleHandler)
+rootLogger.setLevel(logging.DEBUG)
+
+
+class TestGitHubAPI(unittest.TestCase):
+
+    def setUp(self):
+
+        self.items = [
+            {
+                'name': 'name1-mid-last1',
+                'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3'
+            }, {
+                'name': 'name2-mid-last2',
+                'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3.2'
+            }, {
+                'name': 'name3-med-last3',
+                'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3'
+            }, {
+                'name': 'name4-mid-last4',
+                'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3'
+            }
+        ]
+
+    def tearDown(self):
+
+        pass
+
+    def test__match_keys_Should_Return_Items_When_NoAttributes(self, *patches):
+        result = GitHubAPI.match_keys(self.items, None)
+        self.assertEqual(result, self.items)
+
+    def test__match_keys_Should_ReturnExpected_When_Called(self, *patches):
+        result = GitHubAPI.match_keys(self.items, ['name', 'key1'])
+        expected_result = [
+            {
+                'name': 'name1-mid-last1',
+                'key1': 'value1'
+            }, {
+                'name': 'name2-mid-last2',
+                'key1': 'value1'
+            }, {
+                'name': 'name3-med-last3',
+                'key1': 'value1'
+            }, {
+                'name': 'name4-mid-last4',
+                'key1': 'value1'
+            }
+        ]
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.githubapi.logger')
+    def test__log_ratelimit_Should_NotLog_When_NoHeader(self, logger_patch, *patches):
+        GitHubAPI.log_ratelimit({})
+        logger_patch.debug.assert_not_called()
+
+    @patch('github3api.githubapi.datetime')
+    @patch('github3api.githubapi.logger')
+    def test__log_ratelimit_Should_LogExpected_When_Header(self, logger_patch, datetime_patch, *patches):
+        datetime_patch.now.return_value = datetime(2020, 5, 6, 18, 22, 45, 12065)
+        datetime_patch.fromtimestamp.return_value = datetime(2020, 5, 6, 19, 20, 51)
+        header = {
+            'X-RateLimit-Reset': '1588792851',
+            'X-RateLimit-Remaining': '4999',
+            'X-RateLimit-Limit': '5000'
+        }
+        GitHubAPI.log_ratelimit(header)
+        logger_patch.debug.assert_called_with('4999/5000 resets in 58 min')
+
+    def test__is_ratelimit_error_Should_Return_False_When_NotHttpError(self, *patches):
+
+        self.assertFalse(GitHubAPI.is_ratelimit_error(Exception('test')))
+
+    def test__is_ratelimit_error_Should_Return_True_When_HttpErrorNoStatusCodeMatch(self, *patches):
+        response_mock = Mock(status_code=404)
+        http_error_mock = HTTPError(Mock())
+        http_error_mock.response = response_mock
+        self.assertFalse(GitHubAPI.is_ratelimit_error(http_error_mock))
+
+    def test__is_ratelimit_error_Should_Return_True_When_Match(self, *patches):
+        response_mock = Mock(status_code=403)
+        http_error_mock = HTTPError(Mock())
+        http_error_mock.response = response_mock
+        self.assertTrue(GitHubAPI.is_ratelimit_error(http_error_mock))
+
+    @patch('github3api.githubapi.GitHubAPI.log_ratelimit')
+    def test__get_response_Should_CallExpected_When_Called(self, log_ratelimit_patch, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        response_mock = Mock(headers={'key': 'value'})
+        client.get_response(response_mock)
+        log_ratelimit_patch.assert_called_once_with(response_mock.headers)
+
+    def test__get_headers_Should_SetAcceptHeader_When_Called(self, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        result = client.get_headers()
+        self.assertEqual(result['Accept'], 'application/vnd.github.v3+json')
+
+    def test__get_next_endpoint_Should_ReturnNone_When_NoLinkHeader(self, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        self.assertIsNone(client._get_next_endpoint(None))
+
+    def test__get_next_endpoint_Should_ReturnExpected_When_CalledWithNextEndpoint(self, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        link_header = '<https://api.github.com/organizations/27781926/repos?page=2>; rel="prev", <https://api.github.com/organizations/27781926/repos?page=4>; rel="next", <https://api.github.com/organizations/27781926/repos?page=4>; rel="last", <https://api.github.com/organizations/27781926/repos?page=1>; rel="first"'
+        result = client._get_next_endpoint(link_header)
+        expected_result = '/organizations/27781926/repos?page=4'
+        self.assertEqual(result, expected_result)
+
+    def test__get_next_endpoint_Should_ReturnNone_When_NoNextEndpoint(self, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        link_header = '<https://api.github.com/organizations/27781926/repos?page=3>; rel="prev", <https://api.github.com/organizations/27781926/repos?page=1>; rel="first"'
+        result = client._get_next_endpoint(link_header)
+        self.assertIsNone(result)
+
+    @patch('github3api.GitHubAPI._get_next_endpoint')
+    @patch('github3api.githubapi.RESTclient.get')
+    def test__get_all_Should_ReturnExpected_When_GetReturnsList(self, get_patch, get_next_endpoint_patch, *patches):
+        response_mock1 = Mock()
+        response_mock1.json.return_value = ['item1', 'item2']
+        response_mock2 = Mock()
+        response_mock2.json.return_value = ['item3', 'item4']
+        get_patch.side_effect = [
+            response_mock1,
+            response_mock2
+        ]
+        get_next_endpoint_patch.side_effect = [
+            {'Link': 'link-header-value'},
+            {}
+        ]
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        result = client._get_all('/repos/edgexfoundry/cd-management/milestones')
+        expected_result = ['item1', 'item2', 'item3', 'item4']
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI._get_next_endpoint')
+    @patch('github3api.githubapi.RESTclient.get')
+    def test__get_all_Should_ReturnExpected_When_GetReturnsDict(self, get_patch, get_next_endpoint_patch, *patches):
+        response_mock1 = Mock()
+        response_mock1.json.return_value = {'key1': 'value1'}
+        response_mock2 = Mock()
+        response_mock2.json.return_value = {'key2': 'value2'}
+        get_patch.side_effect = [
+            response_mock1,
+            response_mock2
+        ]
+        get_next_endpoint_patch.side_effect = [
+            {'Link': 'link-header-value'},
+            {}
+        ]
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        result = client._get_all('/repos/edgexfoundry/cd-management/milestones')
+        expected_result = [{'key1': 'value1'}, {'key2': 'value2'}]
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI._get_next_endpoint')
+    @patch('github3api.githubapi.RESTclient.get')
+    def test__get_all_Should_ReturnEmptyList_When_NoResponse(self, get_patch, get_next_endpoint_patch, *patches):
+        get_patch.side_effect = [
+            None
+        ]
+        get_next_endpoint_patch.side_effect = [
+            None
+        ]
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        result = client._get_all('/repos/edgexfoundry/cd-management/milestones')
+        expected_result = []
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI._get_next_endpoint')
+    @patch('github3api.githubapi.RESTclient.get')
+    def test__get_page_Should_ReturnExpected_When_Called(self, get_patch, get_next_endpoint_patch, *patches):
+        response_mock1 = Mock()
+        response_mock1.json.return_value = [
+            'page1',
+            'page2'
+        ]
+        response_mock2 = Mock()
+        response_mock2.json.return_value = [
+            'page3',
+            'page4'
+        ]
+        get_patch.side_effect = [
+            response_mock1,
+            response_mock2
+        ]
+        get_next_endpoint_patch.return_value = [
+            'next-endpoint',
+            'next-endpoint'
+        ]
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        result = client._get_page('endpoint')
+        self.assertEqual(next(result), 'page1')
+        self.assertEqual(next(result), 'page2')
+        self.assertEqual(next(result), 'page3')
+        self.assertEqual(next(result), 'page4')
+        with self.assertRaises(StopIteration):
+            next(result)
+
+    @patch('github3api.GitHubAPI._get_next_endpoint')
+    @patch('github3api.githubapi.RESTclient.get')
+    def test__get_page_Should_ReturnExpected_When_NoEndpoint(self, get_patch, get_next_endpoint_patch, *patches):
+        response_mock1 = Mock()
+        response_mock1.json.return_value = [
+            'page1',
+            'page2'
+        ]
+        get_patch.side_effect = [
+            response_mock1
+        ]
+        get_next_endpoint_patch.side_effect = [
+            None
+        ]
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        result = client._get_page('endpoint')
+        self.assertEqual(next(result), 'page1')
+        self.assertEqual(next(result), 'page2')
+        with self.assertRaises(StopIteration):
+            next(result)
+
+    @patch('github3api.GitHubAPI.match_keys')
+    @patch('github3api.GitHubAPI._get_all')
+    def test__get_Should_CallExpected_When_AllDirective(self, get_all_patch, match_keys_patch, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        endpoint = '/repos/edgexfoundry/cd-management/milestones'
+        attributes = ['key1', 'key2']
+        result = client.get(endpoint, _get='all', _attributes=attributes)
+        get_all_patch.assert_called_once_with(endpoint)
+        match_keys_patch.assert_called_once_with(get_all_patch.return_value, attributes)
+        self.assertEqual(result, match_keys_patch.return_value)
+
+    @patch('github3api.GitHubAPI._get_page')
+    def test__get_Should_CallExpected_When_GenDirective(self, get_page_patch, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        endpoint = '/repos/edgexfoundry/cd-management/milestones'
+        result = client.get(endpoint, _get='page')
+        get_page_patch.assert_called_once_with(endpoint)
+        self.assertEqual(result, get_page_patch.return_value)
+
+    @patch('github3api.githubapi.RESTclient.get')
+    def test__get_Should_CallExpected_When_NoDirective(self, get_patch, *patches):
+        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        endpoint = '/repos/edgexfoundry/cd-management/milestones'
+        result = client.get(endpoint, k1='v1', k2='v2')
+        get_patch.assert_called_once_with(endpoint, k1='v1', k2='v2')
+        self.assertEqual(result, get_patch.return_value)
+
+    @patch('github3api.githubapi.getenv', return_value='token')
+    @patch('github3api.githubapi.GitHubAPI')
+    def test__get_client_Should_CallAndReturnExpected_When_Called(self, githubapi_patch, getenv_patch, *patches):
+        getenv_patch.side_effect = [
+            'url',
+            'token'
+        ]
+        result = GitHubAPI.get_client()
+        githubapi_patch.assert_called_once_with('url', bearer_token='token')
+        self.assertEqual(result, githubapi_patch.return_value)
+
+    @patch('github3api.GitHubAPI.is_ratelimit_error')
+    def test__get_retries_Should_ReturnExpected_When_Override(self, is_ratelimit_error_patch, *patches):
+        kwargs = {
+            'wait_fixed': 30,
+            'max_attempts': 3,
+            'retries': ['retry1', 'retry2']
+        }
+        result = GitHubAPI.get_retries(kwargs)
+        expected_result = [
+            {
+                'retry_on_exception': is_ratelimit_error_patch,
+                'wait_fixed': 30,
+                'stop_max_attempt_number': 3
+            },
+            'retry1',
+            'retry2'
+        ]
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI.is_ratelimit_error')
+    def test__get_retries_Should_ReturnExpected_When_NoOverride(self, is_ratelimit_error_patch, *patches):
+        kwargs = {
+        }
+        result = GitHubAPI.get_retries(kwargs)
+        expected_result = [
+            {
+                'retry_on_exception': is_ratelimit_error_patch,
+                'wait_fixed': 60000,
+                'stop_max_attempt_number': 60
+            }
+        ]
+        self.assertEqual(result, expected_result)
