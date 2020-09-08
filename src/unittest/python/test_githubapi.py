@@ -128,29 +128,29 @@ class TestGitHubAPI(unittest.TestCase):
 
     @patch('github3api.githubapi.GitHubAPI.log_ratelimit')
     def test__get_response_Should_CallExpected_When_Called(self, log_ratelimit_patch, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         response_mock = Mock(headers={'key': 'value'})
         client.get_response(response_mock)
         log_ratelimit_patch.assert_called_once_with(response_mock.headers)
 
     def test__get_headers_Should_SetAcceptHeader_When_Called(self, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         result = client.get_headers()
         self.assertEqual(result['Accept'], 'application/vnd.github.v3+json')
 
     def test__get_next_endpoint_Should_ReturnNone_When_NoLinkHeader(self, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         self.assertIsNone(client._get_next_endpoint(None))
 
     def test__get_next_endpoint_Should_ReturnExpected_When_CalledWithNextEndpoint(self, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         link_header = '<https://api.github.com/organizations/27781926/repos?page=2>; rel="prev", <https://api.github.com/organizations/27781926/repos?page=4>; rel="next", <https://api.github.com/organizations/27781926/repos?page=4>; rel="last", <https://api.github.com/organizations/27781926/repos?page=1>; rel="first"'
         result = client._get_next_endpoint(link_header)
         expected_result = '/organizations/27781926/repos?page=4'
         self.assertEqual(result, expected_result)
 
     def test__get_next_endpoint_Should_ReturnNone_When_NoNextEndpoint(self, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         link_header = '<https://api.github.com/organizations/27781926/repos?page=3>; rel="prev", <https://api.github.com/organizations/27781926/repos?page=1>; rel="first"'
         result = client._get_next_endpoint(link_header)
         self.assertIsNone(result)
@@ -170,7 +170,7 @@ class TestGitHubAPI(unittest.TestCase):
             {'Link': 'link-header-value'},
             {}
         ]
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_all('/repos/edgexfoundry/cd-management/milestones')
         expected_result = ['item1', 'item2', 'item3', 'item4']
         self.assertEqual(result, expected_result)
@@ -190,7 +190,7 @@ class TestGitHubAPI(unittest.TestCase):
             {'Link': 'link-header-value'},
             {}
         ]
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_all('/repos/edgexfoundry/cd-management/milestones')
         expected_result = [{'key1': 'value1'}, {'key2': 'value2'}]
         self.assertEqual(result, expected_result)
@@ -204,7 +204,7 @@ class TestGitHubAPI(unittest.TestCase):
         get_next_endpoint_patch.side_effect = [
             None
         ]
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_all('/repos/edgexfoundry/cd-management/milestones')
         expected_result = []
         self.assertEqual(result, expected_result)
@@ -230,7 +230,7 @@ class TestGitHubAPI(unittest.TestCase):
             'next-endpoint',
             'next-endpoint'
         ]
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_page('endpoint')
         self.assertEqual(next(result), 'page1')
         self.assertEqual(next(result), 'page2')
@@ -253,7 +253,7 @@ class TestGitHubAPI(unittest.TestCase):
         get_next_endpoint_patch.side_effect = [
             None
         ]
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_page('endpoint')
         self.assertEqual(next(result), 'page1')
         self.assertEqual(next(result), 'page2')
@@ -263,7 +263,7 @@ class TestGitHubAPI(unittest.TestCase):
     @patch('github3api.GitHubAPI.match_keys')
     @patch('github3api.GitHubAPI._get_all')
     def test__get_Should_CallExpected_When_AllDirective(self, get_all_patch, match_keys_patch, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         endpoint = '/repos/edgexfoundry/cd-management/milestones'
         attributes = ['key1', 'key2']
         result = client.get(endpoint, _get='all', _attributes=attributes)
@@ -273,7 +273,7 @@ class TestGitHubAPI(unittest.TestCase):
 
     @patch('github3api.GitHubAPI._get_page')
     def test__get_Should_CallExpected_When_GenDirective(self, get_page_patch, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         endpoint = '/repos/edgexfoundry/cd-management/milestones'
         result = client.get(endpoint, _get='page')
         get_page_patch.assert_called_once_with(endpoint)
@@ -281,7 +281,7 @@ class TestGitHubAPI(unittest.TestCase):
 
     @patch('github3api.githubapi.RESTclient.get')
     def test__get_Should_CallExpected_When_NoDirective(self, get_patch, *patches):
-        client = GitHubAPI('api.github.com', bearer_token='bearer-token')
+        client = GitHubAPI(bearer_token='bearer-token')
         endpoint = '/repos/edgexfoundry/cd-management/milestones'
         result = client.get(endpoint, k1='v1', k2='v2')
         get_patch.assert_called_once_with(endpoint, k1='v1', k2='v2')
@@ -295,7 +295,7 @@ class TestGitHubAPI(unittest.TestCase):
             'token'
         ]
         result = GitHubAPI.get_client()
-        githubapi_patch.assert_called_once_with('url', bearer_token='token')
+        githubapi_patch.assert_called_once_with(hostname='url', bearer_token='token')
         self.assertEqual(result, githubapi_patch.return_value)
 
     @patch('github3api.GitHubAPI.is_ratelimit_error')

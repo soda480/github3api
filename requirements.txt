@@ -1,1 +1,1 @@
--e git+https://github.com/soda480/rest3client.git@0.0.7#egg=RESTclient
+rest3client

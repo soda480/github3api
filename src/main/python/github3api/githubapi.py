@@ -34,8 +34,9 @@ class GitHubAPI(RESTclient):
     """ An advanced REST client for the GitHub API
     """
 
-    def __init__(self, hostname, **kwargs):
+    def __init__(self, **kwargs):
         logger.debug('executing GitHubAPI constructor')
+        hostname = kwargs.pop('hostname', HOSTNAME)
         retries = GitHubAPI.get_retries(kwargs)
         super(GitHubAPI, self).__init__(hostname, retries=retries, **kwargs)
 
@@ -132,7 +133,7 @@ class GitHubAPI(RESTclient):
         """ return instance of GitHubAPI
         """
         return GitHubAPI(
-            getenv('GH_BASE_URL', HOSTNAME),
+            hostname=getenv('GH_BASE_URL', HOSTNAME),
             bearer_token=getenv('GH_TOKEN_PSW'))
 
     @staticmethod
