@@ -45,7 +45,7 @@ class GitHubAPI(RESTclient):
         """
         ratelimit = GitHubAPI.get_ratelimit(response.headers)
         if ratelimit:
-            GitHubAPI.log_ratelimit(ratelimit)
+            self.log_ratelimit(ratelimit)
         return super(GitHubAPI, self).get_response(response, **kwargs)
 
     def get_headers(self, **kwargs):
