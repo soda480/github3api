@@ -140,12 +140,24 @@ class TestGitHubAPI(unittest.TestCase):
         http_error_mock.response = response_mock
         self.assertTrue(GitHubAPI.is_ratelimit_error(http_error_mock))
 
+    @patch('github3api.githubapi.GitHubAPI.log_ratelimit')
     @patch('github3api.githubapi.GitHubAPI.get_ratelimit')
-    def test__get_response_Should_CallExpected_When_Called(self, get_ratelimit_patch, *patches):
+    def test__get_response_Should_CallExpected_When_RateLimit(self, get_ratelimit_patch, log_ratelimit_patch, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
         response_mock = Mock(headers={'key': 'value'})
         client.get_response(response_mock)
         get_ratelimit_patch.assert_called_once_with(response_mock.headers)
+        log_ratelimit_patch.assert_called_once_with(get_ratelimit_patch.return_value)
+
+    @patch('github3api.githubapi.GitHubAPI.log_ratelimit')
+    @patch('github3api.githubapi.GitHubAPI.get_ratelimit')
+    def test__get_response_Should_CallExpected_When_NoRateLimit(self, get_ratelimit_patch, log_ratelimit_patch, *patches):
+        get_ratelimit_patch.return_value = {}
+        client = GitHubAPI(bearer_token='bearer-token')
+        response_mock = Mock(headers={'key': 'value'})
+        client.get_response(response_mock)
+        get_ratelimit_patch.assert_called_once_with(response_mock.headers)
+        log_ratelimit_patch.assert_not_called()
 
     def test__get_headers_Should_SetAcceptHeader_When_Called(self, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
