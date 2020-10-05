@@ -35,7 +35,7 @@ authors = [
 ]
 summary = 'An advanced REST client for the GitHub API'
 url = 'https://github.com/soda480/github3api'
-version = '0.0.1'
+version = '0.0.2'
 default_task = [
     'clean',
     'analyze',
