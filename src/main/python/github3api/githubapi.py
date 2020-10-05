@@ -43,7 +43,9 @@ class GitHubAPI(RESTclient):
     def get_response(self, response, **kwargs):
         """ subclass override to including logging of ratelimits
         """
-        GitHubAPI.log_ratelimit(response.headers)
+        ratelimit = GitHubAPI.get_ratelimit(response.headers)
+        if ratelimit:
+            GitHubAPI.log_ratelimit(ratelimit)
         return super(GitHubAPI, self).get_response(response, **kwargs)
 
     def get_headers(self, **kwargs):
@@ -116,25 +118,50 @@ class GitHubAPI(RESTclient):
             return super(GitHubAPI, self).get(endpoint, **kwargs)
 
     @classmethod
-    def log_ratelimit(cls, headers):
-        """ convert and log rate limit data
-        """
-        reset = headers.get('X-RateLimit-Reset')
-        if not reset:
-            return
-        remaining = headers.get('X-RateLimit-Remaining')
-        limit = headers.get('X-RateLimit-Limit')
-        delta = datetime.fromtimestamp(int(reset)) - datetime.now()
-        minutes = str(delta.total_seconds() / 60).split('.')[0]
-        logger.debug(f'{remaining}/{limit} resets in {minutes} min')
-
-    @classmethod
     def get_client(cls):
         """ return instance of GitHubAPI
         """
         return GitHubAPI(
             hostname=getenv('GH_BASE_URL', HOSTNAME),
             bearer_token=getenv('GH_TOKEN_PSW'))
+
+    @staticmethod
+    def get_retries(kwargs):
+        """ return retries
+        """
+        retries = []
+        wait_fixed = kwargs.pop('wait_fixed', WAIT_FIXED)
+        max_attempts = kwargs.pop('max_attempts', MAX_ATTEMPTS)
+        retries.append({
+            'retry_on_exception': GitHubAPI.is_ratelimit_error,
+            'wait_fixed': wait_fixed,
+            'stop_max_attempt_number': max_attempts
+        })
+        retries.extend(kwargs.pop('retries', []))
+        return retries
+
+    @staticmethod
+    def get_ratelimit(headers):
+        """ get rate limit data
+        """
+        reset = headers.get('X-RateLimit-Reset')
+        if not reset:
+            return {}
+        remaining = headers.get('X-RateLimit-Remaining')
+        limit = headers.get('X-RateLimit-Limit')
+        delta = datetime.fromtimestamp(int(reset)) - datetime.now()
+        minutes = str(delta.total_seconds() / 60).split('.')[0]
+        return {
+            'remaining': remaining,
+            'limit': limit,
+            'minutes': minutes
+        }
+
+    @staticmethod
+    def log_ratelimit(ratelimit):
+        """ log rate limit data
+        """
+        logger.debug(f"{ratelimit['remaining']}/{ratelimit['limit']} resets in {ratelimit['minutes']} min")
 
     @staticmethod
     def match_keys(items, attributes):
@@ -153,24 +180,10 @@ class GitHubAPI(RESTclient):
     def is_ratelimit_error(exception):
         """ return True if exception is 403 HTTPError, False otherwise
         """
-        logger.debug(f'checking exception for retry candidacy: {type(exception).__name__}')
+        logger.debug(f"checking if '{type(exception).__name__}' exception is a ratelimit error")
         if isinstance(exception, HTTPError):
             if exception.response.status_code == 403:
-                logger.info('ratelimit error - retrying request in 10 seconds')
+                logger.info('ratelimit error encountered - retrying request shortly')
                 return True
+        logger.debug(f'exception is not a ratelimit error: {exception}')
         return False
-
-    @staticmethod
-    def get_retries(kwargs):
-        """ return retries
-        """
-        retries = []
-        wait_fixed = kwargs.pop('wait_fixed', WAIT_FIXED)
-        max_attempts = kwargs.pop('max_attempts', MAX_ATTEMPTS)
-        retries.append({
-            'retry_on_exception': GitHubAPI.is_ratelimit_error,
-            'wait_fixed': wait_fixed,
-            'stop_max_attempt_number': max_attempts
-        })
-        retries.extend(kwargs.pop('retries', []))
-        return retries
