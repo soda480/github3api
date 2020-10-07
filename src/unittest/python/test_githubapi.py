@@ -124,21 +124,21 @@ class TestGitHubAPI(unittest.TestCase):
         GitHubAPI.log_ratelimit(ratelimit)
         logger_patch.debug.assert_called_with('4999/5000 resets in 58 min')
 
-    def test__is_ratelimit_error_Should_Return_False_When_NotHttpError(self, *patches):
+    def test__retry_ratelimit_error_Should_Return_False_When_NotHttpError(self, *patches):
 
-        self.assertFalse(GitHubAPI.is_ratelimit_error(Exception('test')))
+        self.assertFalse(GitHubAPI.retry_ratelimit_error(Exception('test')))
 
-    def test__is_ratelimit_error_Should_Return_True_When_HttpErrorNoStatusCodeMatch(self, *patches):
+    def test__retry_ratelimit_error_Should_Return_True_When_HttpErrorNoStatusCodeMatch(self, *patches):
         response_mock = Mock(status_code=404)
         http_error_mock = HTTPError(Mock())
         http_error_mock.response = response_mock
-        self.assertFalse(GitHubAPI.is_ratelimit_error(http_error_mock))
+        self.assertFalse(GitHubAPI.retry_ratelimit_error(http_error_mock))
 
-    def test__is_ratelimit_error_Should_Return_True_When_Match(self, *patches):
+    def test__retry_ratelimit_error_Should_Return_True_When_Match(self, *patches):
         response_mock = Mock(status_code=403)
         http_error_mock = HTTPError(Mock())
         http_error_mock.response = response_mock
-        self.assertTrue(GitHubAPI.is_ratelimit_error(http_error_mock))
+        self.assertTrue(GitHubAPI.retry_ratelimit_error(http_error_mock))
 
     @patch('github3api.githubapi.GitHubAPI.log_ratelimit')
     @patch('github3api.githubapi.GitHubAPI.get_ratelimit')
@@ -324,35 +324,13 @@ class TestGitHubAPI(unittest.TestCase):
         githubapi_patch.assert_called_once_with(hostname='url', bearer_token='token')
         self.assertEqual(result, githubapi_patch.return_value)
 
-    @patch('github3api.GitHubAPI.is_ratelimit_error')
-    def test__get_retries_Should_ReturnExpected_When_Override(self, is_ratelimit_error_patch, *patches):
-        kwargs = {
-            'wait_fixed': 30,
-            'max_attempts': 3,
-            'retries': ['retry1', 'retry2']
-        }
-        result = GitHubAPI.get_retries(kwargs)
-        expected_result = [
+    def test__get_retries_Should_ReturnExpected_When_Called(self, *patches):
+        client = GitHubAPI(bearer_token='bearer-token')
+        expected_retries = [
             {
-                'retry_on_exception': is_ratelimit_error_patch,
-                'wait_fixed': 30,
-                'stop_max_attempt_number': 3
-            },
-            'retry1',
-            'retry2'
-        ]
-        self.assertEqual(result, expected_result)
-
-    @patch('github3api.GitHubAPI.is_ratelimit_error')
-    def test__get_retries_Should_ReturnExpected_When_NoOverride(self, is_ratelimit_error_patch, *patches):
-        kwargs = {
-        }
-        result = GitHubAPI.get_retries(kwargs)
-        expected_result = [
-            {
-                'retry_on_exception': is_ratelimit_error_patch,
-                'wait_fixed': 60000,
-                'stop_max_attempt_number': 60
+                'retry_on_exception': client.retry_ratelimit_error,
+                'stop_max_attempt_number': 60,
+                'wait_fixed': 60000
             }
         ]
-        self.assertEqual(result, expected_result)
+        self.assertEqual(client.retries, expected_retries)

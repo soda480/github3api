@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.CRITICAL)
 
 HOSTNAME = 'api.github.com'
-WAIT_FIXED = 60000
-MAX_ATTEMPTS = 60
 
 
 class GitHubAPI(RESTclient):
@@ -37,8 +35,7 @@ class GitHubAPI(RESTclient):
     def __init__(self, **kwargs):
         logger.debug('executing GitHubAPI constructor')
         hostname = kwargs.pop('hostname', HOSTNAME)
-        retries = GitHubAPI.get_retries(kwargs)
-        super(GitHubAPI, self).__init__(hostname, retries=retries, **kwargs)
+        super(GitHubAPI, self).__init__(hostname, **kwargs)
 
     def get_response(self, response, **kwargs):
         """ subclass override to including logging of ratelimits
@@ -126,21 +123,6 @@ class GitHubAPI(RESTclient):
             bearer_token=getenv('GH_TOKEN_PSW'))
 
     @staticmethod
-    def get_retries(kwargs):
-        """ return retries
-        """
-        retries = []
-        wait_fixed = kwargs.pop('wait_fixed', WAIT_FIXED)
-        max_attempts = kwargs.pop('max_attempts', MAX_ATTEMPTS)
-        retries.append({
-            'retry_on_exception': GitHubAPI.is_ratelimit_error,
-            'wait_fixed': wait_fixed,
-            'stop_max_attempt_number': max_attempts
-        })
-        retries.extend(kwargs.pop('retries', []))
-        return retries
-
-    @staticmethod
     def get_ratelimit(headers):
         """ get rate limit data
         """
@@ -177,13 +159,16 @@ class GitHubAPI(RESTclient):
         return matched_items
 
     @staticmethod
-    def is_ratelimit_error(exception):
+    def retry_ratelimit_error(exception):
         """ return True if exception is 403 HTTPError, False otherwise
+            retry:
+                wait_fixed:60000
+                stop_max_attempt_number:60
         """
         logger.debug(f"checking if '{type(exception).__name__}' exception is a ratelimit error")
         if isinstance(exception, HTTPError):
             if exception.response.status_code == 403:
-                logger.info('ratelimit error encountered - retrying request shortly')
+                logger.info('ratelimit error encountered - retrying request in 60 seconds')
                 return True
         logger.debug(f'exception is not a ratelimit error: {exception}')
         return False
