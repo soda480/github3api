@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+An advanced REST client for the GitHub API. The client also includes special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over. By default all requests will be retried if ratelimit request limit is reached.
+"""
+
 from pybuilder.core import use_plugin
 from pybuilder.core import init
 from pybuilder.core import Author
@@ -42,7 +46,8 @@ default_task = [
     'cyclomatic_complexity',
     'package'
 ]
-
+license = 'Apache License, Version 2.0'
+description = __doc__
 
 @init
 def set_properties(project):
@@ -56,6 +61,21 @@ def set_properties(project):
     project.set_property('flake8_ignore', 'E501, W503, F401, E722, W605')
     project.build_depends_on_requirements('requirements-build.txt')
     project.depends_on_requirements('requirements.txt')
+    project.set_property('distutils_classifiers', [
+        'Development Status :: 4 - Beta',
+        'Environment :: Console',
+        'Environment :: Other Environment',
+        'Intended Audience :: Developers',
+        'Intended Audience :: System Administrators',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: POSIX :: Linux',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3.6',
+        'Topic :: Software Development :: Libraries',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+        'Topic :: System :: Networking',
+        'Topic :: System :: Systems Administration'
+    ])
 
 
 @task('cyclomatic_complexity', description='calculates and publishes cyclomatic complexity')
