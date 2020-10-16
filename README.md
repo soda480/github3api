@@ -1,6 +1,7 @@
 [![GitHub Workflow Status](https://github.com/soda480/github3api/workflows/build/badge.svg)](https://github.com/soda480/github3api/actions)
 [![Code Coverage](https://codecov.io/gh/soda480/github3api/branch/master/graph/badge.svg)](https://codecov.io/gh/soda480/github3api)
 [![Code Grade](https://www.code-inspector.com/project/13337/status/svg)](https://frontend.code-inspector.com/project/13337/dashboard)
+[![PyPI version](https://badge.fury.io/py/github3api.svg)](https://badge.fury.io/py/github3api)
 
 # github3api #
 An advanced REST client for the GitHub API. The client also includes special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over. By default all requests will be retried if ratelimit request limit is reached.
