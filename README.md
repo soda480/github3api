@@ -9,7 +9,7 @@ An advanced REST client for the GitHub API. The client also includes special opt
 
 ### Installation ###
 ```bash
-pip install https://github.com/soda480/github3api.git
+pip install github3api
 ```
 
 ### Example Usage ###
