@@ -6,9 +6,6 @@ WORKDIR /github3api
 
 COPY . /github3api/
 
-RUN apk update
-RUN apk add git gcc
-RUN pip install --upgrade pip
 RUN pip install pybuilder==0.11.17
 RUN pyb install_dependencies
 RUN pyb
