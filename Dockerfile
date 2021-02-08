@@ -24,8 +24,7 @@ COPY . /github3api/
 
 RUN pip install pybuilder==0.11.17
 RUN pyb install_dependencies
-RUN pyb
-RUN pyb publish
+RUN pyb install
 
 
 FROM python:3.6-alpine
@@ -37,5 +36,3 @@ WORKDIR /opt/github3api
 COPY --from=build-image /github3api/target/dist/github3api-*/dist/github3api-*.tar.gz /opt/github3api
 
 RUN pip install github3api-*.tar.gz
-
-CMD echo 'DONE'
