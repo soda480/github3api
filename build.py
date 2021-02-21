@@ -13,10 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-An advanced REST client for the GitHub API. The client also includes special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over. By default all requests will be retried if ratelimit request limit is reached.
-"""
-
 from pybuilder.core import use_plugin
 from pybuilder.core import init
 from pybuilder.core import Author
@@ -32,13 +28,16 @@ use_plugin('python.flake8')
 use_plugin('python.coverage')
 use_plugin('python.distutils')
 
+with open('README.md', mode='r', encoding='utf-8') as readme_file:
+    readme_contents = readme_file.read()
+
 name = 'github3api'
 authors = [
     Author('Emilio Reyes', 'emilio.reyes@intel.com')
 ]
 summary = 'An advanced REST client for the GitHub API'
 url = 'https://github.com/soda480/github3api'
-version = '0.0.3'
+version = '0.0.4'
 default_task = [
     'clean',
     'analyze',
@@ -46,7 +45,9 @@ default_task = [
     'package'
 ]
 license = 'Apache License, Version 2.0'
-description = __doc__
+description = summary
+long_description = readme_contents
+long_description_content_type = 'text/markdown',
 
 @init
 def set_properties(project):
