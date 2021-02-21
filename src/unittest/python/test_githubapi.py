@@ -24,6 +24,7 @@ from github3api import GitHubAPI
 from datetime import datetime
 
 from requests.exceptions import HTTPError
+from requests.exceptions import ChunkedEncodingError
 
 import sys
 import logging
@@ -328,9 +329,23 @@ class TestGitHubAPI(unittest.TestCase):
         client = GitHubAPI(bearer_token='bearer-token')
         expected_retries = [
             {
+                'retry_on_exception': client.retry_chunkedencodingerror_error,
+                'stop_max_attempt_number': 120,
+                'wait_fixed': 10000
+            },
+            {
                 'retry_on_exception': client.retry_ratelimit_error,
                 'stop_max_attempt_number': 60,
                 'wait_fixed': 60000
             }
+
         ]
         self.assertEqual(client.retries, expected_retries)
+
+    def test__retry_chunkedencodingerror_error_Should_Return_False_When_NotChunkEncodingError(self, *patches):
+
+        self.assertFalse(GitHubAPI.retry_chunkedencodingerror_error(Exception('test')))
+
+    def test__retry_chunkedencodingerror_error_Should_Return_True_When_ChunkEncodingError(self, *patches):
+
+        self.assertTrue(GitHubAPI.retry_chunkedencodingerror_error(ChunkedEncodingError()))

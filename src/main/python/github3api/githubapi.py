@@ -20,6 +20,7 @@ from datetime import datetime
 
 from rest3client import RESTclient
 from requests.exceptions import HTTPError
+from requests.exceptions import ChunkedEncodingError
 
 logger = logging.getLogger(__name__)
 
@@ -170,5 +171,19 @@ class GitHubAPI(RESTclient):
             if exception.response.status_code == 403:
                 logger.info('ratelimit error encountered - retrying request in 60 seconds')
                 return True
+        logger.debug(f'exception is not a ratelimit error: {exception}')
+        return False
+
+    @staticmethod
+    def retry_chunkedencodingerror_error(exception):
+        """ return True if exception is ChunkedEncodingError, False otherwise
+            retry:
+                wait_fixed:10000
+                stop_max_attempt_number:120
+        """
+        logger.debug(f"checking if '{type(exception).__name__}' exception is a ChunkedEncodingError error")
+        if isinstance(exception, ChunkedEncodingError):
+            logger.info('ratelimit error encountered - retrying request in 10 seconds')
+            return True
         logger.debug(f'exception is not a ratelimit error: {exception}')
         return False
