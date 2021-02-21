@@ -37,7 +37,7 @@ authors = [
 ]
 summary = 'An advanced REST client for the GitHub API'
 url = 'https://github.com/soda480/github3api'
-version = '0.0.4'
+version = '0.0.5'
 default_task = [
     'clean',
     'analyze',
@@ -45,9 +45,8 @@ default_task = [
     'package'
 ]
 license = 'Apache License, Version 2.0'
-description = summary
-long_description = readme_contents
-long_description_content_type = 'text/markdown',
+description = readme_contents
+long_description_content_type = 'text/markdown'
 
 @init
 def set_properties(project):
