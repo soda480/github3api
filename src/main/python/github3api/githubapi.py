@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.CRITICAL)
 
 HOSTNAME = 'api.github.com'
+VERSION = 'v3'
 
 
 class GitHubAPI(RESTclient):
@@ -36,6 +37,7 @@ class GitHubAPI(RESTclient):
     def __init__(self, **kwargs):
         logger.debug('executing GitHubAPI constructor')
         hostname = kwargs.pop('hostname', HOSTNAME)
+        self.version = kwargs.pop('version', VERSION)
         super(GitHubAPI, self).__init__(hostname, **kwargs)
 
     def get_response(self, response, **kwargs):
@@ -50,7 +52,7 @@ class GitHubAPI(RESTclient):
         """ return headers to pass to requests method
         """
         headers = super(GitHubAPI, self).get_headers(**kwargs)
-        headers['Accept'] = 'application/vnd.github.v3+json'
+        headers['Accept'] = f'application/vnd.github.{self.version}+json'
         return headers
 
     def _get_next_endpoint(self, link_header):
@@ -175,7 +177,7 @@ class GitHubAPI(RESTclient):
         return False
 
     @staticmethod
-    def retry_chunkedencodingerror_error(exception):
+    def _retry_chunkedencodingerror_error(exception):
         """ return True if exception is ChunkedEncodingError, False otherwise
             retry:
                 wait_fixed:10000

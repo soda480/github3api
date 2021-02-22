@@ -165,6 +165,11 @@ class TestGitHubAPI(unittest.TestCase):
         result = client.get_headers()
         self.assertEqual(result['Accept'], 'application/vnd.github.v3+json')
 
+    def test__get_headers_Should_SetAcceptHeader_When_Version(self, *patches):
+        client = GitHubAPI(bearer_token='bearer-token', version='v2')
+        result = client.get_headers()
+        self.assertEqual(result['Accept'], 'application/vnd.github.v2+json')
+
     def test__get_next_endpoint_Should_ReturnNone_When_NoLinkHeader(self, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
         self.assertIsNone(client._get_next_endpoint(None))
@@ -328,11 +333,11 @@ class TestGitHubAPI(unittest.TestCase):
     def test__get_retries_Should_ReturnExpected_When_Called(self, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
         expected_retries = [
-            {
-                'retry_on_exception': client.retry_chunkedencodingerror_error,
-                'stop_max_attempt_number': 120,
-                'wait_fixed': 10000
-            },
+            # {
+            #     'retry_on_exception': client.retry_chunkedencodingerror_error,
+            #     'stop_max_attempt_number': 120,
+            #     'wait_fixed': 10000
+            # },
             {
                 'retry_on_exception': client.retry_ratelimit_error,
                 'stop_max_attempt_number': 60,
@@ -344,8 +349,8 @@ class TestGitHubAPI(unittest.TestCase):
 
     def test__retry_chunkedencodingerror_error_Should_Return_False_When_NotChunkEncodingError(self, *patches):
 
-        self.assertFalse(GitHubAPI.retry_chunkedencodingerror_error(Exception('test')))
+        self.assertFalse(GitHubAPI._retry_chunkedencodingerror_error(Exception('test')))
 
     def test__retry_chunkedencodingerror_error_Should_Return_True_When_ChunkEncodingError(self, *patches):
 
-        self.assertTrue(GitHubAPI.retry_chunkedencodingerror_error(ChunkedEncodingError()))
+        self.assertTrue(GitHubAPI._retry_chunkedencodingerror_error(ChunkedEncodingError()))
