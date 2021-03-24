@@ -81,14 +81,7 @@ for repo in client.get('/user/repos', _get='page'):
 
 ### Development ###
 
-Ensure the latest version of Docker is installed on your development server.
-
-Clone the repository:
-```bash
-cd
-git clone https://github.com/soda480/github3api.git
-cd github3api
-```
+Ensure the latest version of Docker is installed on your development server. Fork and clone the repository.
 
 Build the Docker image:
 ```sh
