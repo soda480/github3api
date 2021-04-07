@@ -55,19 +55,15 @@ class GitHubAPI(RESTclient):
         headers['Accept'] = f'application/vnd.github.{self.version}+json'
         return headers
 
-    def _get_next_endpoint(self, link_header):
-        """ return next endpoint from link header
+    def _get_next_endpoint(self, url):
+        """ return next endpoint
         """
-        if not link_header:
+        if not url:
             logger.debug('link header is empty')
             return
-        regex = fr".*<https://{self.hostname}(?P<endpoint>/.*?)>; rel=\"next\".*"
-        match = re.match(regex, link_header)
-        if match:
-            endpoint = match.group('endpoint')
-            logger.debug(f'found next endpoint in link header: {endpoint}')
-            return endpoint
-        logger.debug('next endpoints not found in link header')
+        endpoint = url.replace(f'https://{self.hostname}', '')
+        logger.debug(f'next endpoint is: {endpoint}')
+        return endpoint
 
     def _get_all(self, endpoint, **kwargs):
         """ return all pages from endpoint
@@ -75,7 +71,7 @@ class GitHubAPI(RESTclient):
         logger.debug(f'get items from: {endpoint}')
         items = []
         while True:
-            link_header = None
+            url = None
             response = super(GitHubAPI, self).get(endpoint, raw_response=True, **kwargs)
             if response:
                 data = response.json()
@@ -83,9 +79,9 @@ class GitHubAPI(RESTclient):
                     items.extend(response.json())
                 else:
                     items.append(data)
-                link_header = response.headers.get('Link')
+                url = response.links.get('next', {}).get('url')
 
-            endpoint = self._get_next_endpoint(link_header)
+            endpoint = self._get_next_endpoint(url)
             if not endpoint:
                 logger.debug('no more pages to retrieve')
                 break
@@ -97,9 +93,8 @@ class GitHubAPI(RESTclient):
         """
         while True:
             response = super(GitHubAPI, self).get(endpoint, raw_response=True, **kwargs)
-            for page in response.json():
-                yield page
-            endpoint = self._get_next_endpoint(response.headers.get('Link'))
+            yield response.json()
+            endpoint = self._get_next_endpoint(response.links.get('next', {}).get('url'))
             if not endpoint:
                 logger.debug('no more pages')
                 break
