@@ -66,8 +66,9 @@ for repo in client.get('/user/repos', _get='all', _attributes=['full_name']):
 
 `GET page` directive - Yield a page from endpoint
 ```python
-for repo in client.get('/user/repos', _get='page'):
-    print(repo['full_name'])
+for page in client.get('/user/repos', _get='page'):
+    for repo in page:
+        print(repo['full_name'])
 ```
 
 ### Projects using `github3api` ###

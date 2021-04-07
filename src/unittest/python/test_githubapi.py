@@ -176,16 +176,10 @@ class TestGitHubAPI(unittest.TestCase):
 
     def test__get_next_endpoint_Should_ReturnExpected_When_CalledWithNextEndpoint(self, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
-        link_header = '<https://api.github.com/organizations/27781926/repos?page=2>; rel="prev", <https://api.github.com/organizations/27781926/repos?page=4>; rel="next", <https://api.github.com/organizations/27781926/repos?page=4>; rel="last", <https://api.github.com/organizations/27781926/repos?page=1>; rel="first"'
+        link_header = 'https://api.github.com/organizations/27781926/repos?page=4'
         result = client._get_next_endpoint(link_header)
         expected_result = '/organizations/27781926/repos?page=4'
         self.assertEqual(result, expected_result)
-
-    def test__get_next_endpoint_Should_ReturnNone_When_NoNextEndpoint(self, *patches):
-        client = GitHubAPI(bearer_token='bearer-token')
-        link_header = '<https://api.github.com/organizations/27781926/repos?page=3>; rel="prev", <https://api.github.com/organizations/27781926/repos?page=1>; rel="first"'
-        result = client._get_next_endpoint(link_header)
-        self.assertIsNone(result)
 
     @patch('github3api.GitHubAPI._get_next_endpoint')
     @patch('github3api.githubapi.RESTclient.get')
@@ -264,10 +258,8 @@ class TestGitHubAPI(unittest.TestCase):
         ]
         client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_page('endpoint')
-        self.assertEqual(next(result), 'page1')
-        self.assertEqual(next(result), 'page2')
-        self.assertEqual(next(result), 'page3')
-        self.assertEqual(next(result), 'page4')
+        self.assertEqual(next(result), ['page1', 'page2'])
+        self.assertEqual(next(result), ['page3', 'page4'])
         with self.assertRaises(StopIteration):
             next(result)
 
@@ -287,8 +279,7 @@ class TestGitHubAPI(unittest.TestCase):
         ]
         client = GitHubAPI(bearer_token='bearer-token')
         result = client._get_page('endpoint')
-        self.assertEqual(next(result), 'page1')
-        self.assertEqual(next(result), 'page2')
+        self.assertEqual(next(result), ['page1', 'page2'])
         with self.assertRaises(StopIteration):
             next(result)
 
