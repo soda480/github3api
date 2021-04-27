@@ -20,6 +20,7 @@ from mock import call
 from mock import Mock
 
 from github3api import GitHubAPI
+from github3api.githubapi import DEFAULT_PAGE_SIZE
 
 from datetime import datetime
 
@@ -345,3 +346,49 @@ class TestGitHubAPI(unittest.TestCase):
     def test__retry_chunkedencodingerror_error_Should_Return_True_When_ChunkEncodingError(self, *patches):
 
         self.assertTrue(GitHubAPI._retry_chunkedencodingerror_error(ChunkedEncodingError()))
+
+    def test__get_endpoint_from_url_Should_ReturnExpected_When_Called(self, *patches):
+        client = GitHubAPI(bearer_token='bearer-token')
+        result = client.get_endpoint_from_url('https://api.github.com/user/repos?page=2')
+        expected_result = '/user/repos?page=2'
+        self.assertEqual(result, expected_result)
+
+    def test__get_page_from_url_Should_ReturnExpected_When_Match(self, *patches):
+        result = GitHubAPI.get_page_from_url('https://api.github.com/user/repos?page=213')
+        expected_result = 213
+        self.assertEqual(result, expected_result)
+
+    def test__get_page_from_url_Should_ReturnExpected_When_NoMatch(self, *patches):
+        result = GitHubAPI.get_page_from_url('https://api.github.com/user/repos')
+        self.assertIsNone(result)
+
+    def test__get_per_page_from_url_Should_Return_Expected_When_Match(self, *patches):
+        result = GitHubAPI.get_per_page_from_url('https://api.github.com/user/repos?page=213&per_page=75')
+        expected_result = 75
+        self.assertEqual(result, expected_result)
+
+    def test__get_per_page_from_url_Should_Return_Expected_When_NoMatch(self, *patches):
+        result = GitHubAPI.get_per_page_from_url('https://api.github.com/user/repos?page=213')
+        expected_result = DEFAULT_PAGE_SIZE
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI.get')
+    def test__get_total_Should_ReturnExpected_When_NoLinks(self, get_patch, *patches):
+        response_mock = Mock()
+        response_mock.links = {}
+        response_mock.json.return_value = ['', '', '']
+        get_patch.return_value = response_mock
+        client = GitHubAPI(bearer_token='bearer-token')
+        result = client.total('/user/repos')
+        expected_result = len(response_mock.json.return_value)
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI.get')
+    def test__get_total_Should_ReturnExpected_When_Links(self, get_patch, *patches):
+        response1_mock = Mock()
+        response1_mock.links = {'next': {'url': 'https://api.github.com/user/repos?page=2', 'rel': 'next'}, 'last': {'url': 'https://api.github.com/user/repos?page=208', 'rel': 'last'}}
+        get_patch.side_effect = [response1_mock, ['', '', '']]
+        client = GitHubAPI(bearer_token='bearer-token')
+        result = client.total('/user/repos')
+        expected_result = DEFAULT_PAGE_SIZE * 207 + 3
+        self.assertEqual(result, expected_result)

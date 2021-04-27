@@ -28,6 +28,7 @@ logging.getLogger('urllib3.connectionpool').setLevel(logging.CRITICAL)
 
 HOSTNAME = 'api.github.com'
 VERSION = 'v3'
+DEFAULT_PAGE_SIZE = 30
 
 
 class GitHubAPI(RESTclient):
@@ -61,7 +62,7 @@ class GitHubAPI(RESTclient):
         if not url:
             logger.debug('link header is empty')
             return
-        endpoint = url.replace(f'https://{self.hostname}', '')
+        endpoint = self.get_endpoint_from_url(url)
         logger.debug(f'next endpoint is: {endpoint}')
         return endpoint
 
@@ -111,6 +112,48 @@ class GitHubAPI(RESTclient):
             return self._get_page(endpoint, **kwargs)
         else:
             return super(GitHubAPI, self).get(endpoint, **kwargs)
+
+    def total(self, endpoint):
+        """ return total number of resources
+        """
+        # logger.debug(f'get total number of resources at endpoint {endpoint}')
+        response = self.get(endpoint, raw_response=True)
+        if response.links:
+            last_url = response.links['last']['url']
+            endpoint = self.get_endpoint_from_url(last_url)
+            items = self.get(endpoint)
+            per_page = GitHubAPI.get_per_page_from_url(last_url)
+            last_page = GitHubAPI.get_page_from_url(last_url)
+            total = per_page * (last_page - 1) + len(items)
+        else:
+            items = response.json()
+            total = len(items)
+        return total
+
+    def get_endpoint_from_url(self, url):
+        """ return endpoint from url
+        """
+        return url.replace(f'https://{self.hostname}', '')
+
+    @staticmethod
+    def get_page_from_url(url):
+        """ get page query parameter form url
+        """
+        regex = r'^.*page=(?P<value>\d+).*$'
+        match = re.match(regex, url)
+        if match:
+            return int(match.group('value'))
+
+    @staticmethod
+    def get_per_page_from_url(url):
+        """ get per_page query parameter from url
+        """
+        per_page = DEFAULT_PAGE_SIZE
+        regex = r'^.*per_page=(?P<value>\d+).*$'
+        match = re.match(regex, url)
+        if match:
+            per_page = int(match.group('value'))
+        return per_page
 
     @classmethod
     def get_client(cls):

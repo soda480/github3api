@@ -71,6 +71,12 @@ for page in client.get('/user/repos', _get='page'):
         print(repo['full_name'])
 ```
 
+`total` - Get total number of resources at given endpoint
+```python
+print(client.total('/user/repos'))
+6218
+```
+
 ### Projects using `github3api` ###
 
 * [edgexfoundry/sync-github-labels](https://github.com/edgexfoundry/cd-management/tree/git-label-sync) A script that synchronizes GitHub labels and milestones
@@ -78,6 +84,10 @@ for page in client.get('/user/repos', _get='page'):
 * [edgexfoundry/prune-github-tags](https://github.com/edgexfoundry/cd-management/tree/prune-github-tags) A script that prunes GitHub pre-release tags
 
 * [edgexfoundry/create-github-release](https://github.com/edgexfoundry/cd-management/tree/create-github-release) A script to facilitate creation of GitHub releases
+
+* [soda480/prepbadge](https://github.com/soda480/prepbadge) A script that creates multiple pull request workflows to update a target organization repos with badges
+
+* [soda480/github-contributions](https://github.com/soda480/github-contributions) A script to get contribution metrics for all members of a GitHub organization using the GitHub GraphQL API
 
 
 ### Development ###
