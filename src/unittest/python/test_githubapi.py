@@ -393,7 +393,19 @@ class TestGitHubAPI(unittest.TestCase):
         expected_result = DEFAULT_PAGE_SIZE * 207 + 3
         self.assertEqual(result, expected_result)
 
-    def test__get_total_Should_RaiseValueError_When_EndpointHasQueryParameter(self, *patches):
+    def test__get_total_Should_RaiseValueError_When_EndpointHasPerPageParameter(self, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
         with self.assertRaises(ValueError):
             client.total('/user/repos?per_page=100')
+
+    @patch('github3api.GitHubAPI.get_per_page_from_url')
+    @patch('github3api.GitHubAPI.get_page_from_url')
+    @patch('github3api.GitHubAPI.get')
+    def test__get_total_Should_CallExpected_When_EndpointHasQueryArguments(self, get_patch, *patches):
+        response_mock = Mock()
+        response_mock.links = {}
+        response_mock.json.return_value = ['', '', '']
+        get_patch.return_value = response_mock
+        client = GitHubAPI(bearer_token='bearer-token')
+        client.total('/user/repos?type=private&direction=asc')
+        self.assertTrue(call('/user/repos?type=private&direction=asc&per_page=1', raw_response=True) in get_patch.mock_calls)
