@@ -117,6 +117,9 @@ class GitHubAPI(RESTclient):
         """ return total number of resources
         """
         # logger.debug(f'get total number of resources at endpoint {endpoint}')
+        if '?' in endpoint:
+            raise ValueError(f'endpoint {endpoint} with query arguments is not supported')
+        endpoint = f'{endpoint}?per_page=1'
         response = self.get(endpoint, raw_response=True)
         if response.links:
             last_url = response.links['last']['url']

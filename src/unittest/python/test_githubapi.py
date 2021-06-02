@@ -392,3 +392,8 @@ class TestGitHubAPI(unittest.TestCase):
         result = client.total('/user/repos')
         expected_result = DEFAULT_PAGE_SIZE * 207 + 3
         self.assertEqual(result, expected_result)
+
+    def test__get_total_Should_RaiseValueError_When_EndpointHasQueryParameter(self, *patches):
+        client = GitHubAPI(bearer_token='bearer-token')
+        with self.assertRaises(ValueError):
+            client.total('/user/repos?per_page=100')
