@@ -1,10 +1,12 @@
+# github3api #
 [![GitHub Workflow Status](https://github.com/soda480/github3api/workflows/build/badge.svg)](https://github.com/soda480/github3api/actions)
 [![Code Coverage](https://codecov.io/gh/soda480/github3api/branch/master/graph/badge.svg)](https://codecov.io/gh/soda480/github3api)
 [![Code Grade](https://www.code-inspector.com/project/13337/status/svg)](https://frontend.code-inspector.com/project/13337/dashboard)
 [![PyPI version](https://badge.fury.io/py/github3api.svg)](https://badge.fury.io/py/github3api)
 
-# github3api #
-An advanced REST client for the GitHub API. It is a subclass of [rest3client](https://pypi.org/project/rest3client/) tailored for the GitHub API with special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over. By default all requests will be retried if ratelimit request limit is reached.
+An advanced REST client for the GitHub API. It is a subclass of [rest3client](https://pypi.org/project/rest3client/) tailored for the GitHub API with special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over (for paged requests). By default all requests will be retried if ratelimit request limit is reached.
+
+Support for executing Graphql queries including paging; Graphql queries are also retried if Graphql rate limiting occurs.
 
 
 ### Installation ###
@@ -77,6 +79,58 @@ print(client.total('/user/repos'))
 6218
 ```
 
+`graphql` - execute graphql query
+```python
+query = """
+  query($query:String!, $page_size:Int!) {
+    search(query: $query, type: REPOSITORY, first: $page_size) {
+      repositoryCount
+      edges {
+        node {
+          ... on Repository {
+            nameWithOwner
+          }
+        }
+      }
+    }
+  }
+"""
+variables = {"query": "org:edgexfoundry", "page_size":100}
+client.graphql(query, variables)
+```
+
+`graphql paging` - execute paged graphql query
+```python
+query = """
+  query ($query: String!, $page_size: Int!, $cursor: String!) {
+    search(query: $query, type: REPOSITORY, first: $page_size, after: $cursor) {
+      repositoryCount
+      pageInfo {
+        endCursor
+        hasNextPage
+      }
+      edges {
+        cursor
+        node {
+          ... on Repository {
+            nameWithOwner
+          }
+        }
+      }
+    }
+  }
+"""
+variables = {"query": "org:edgexfoundry", "page_size":100}
+for page in client.graphql(query, variables, page=True, keys='data.search'):
+    for repo in page:
+        print(repo['node']['nameWithOwner'])
+```
+
+For Graphql paged queries:
+- the query should include the necessary pageInfo and cursor attributes
+- the keys method argument is a dot annotated string that is used to access the resulting dictionary response object
+- the query is retried every 60 seconds (for up to an hour) if a ratelimit occur
+
 ### Projects using `github3api` ###
 
 * [edgexfoundry/sync-github-labels](https://github.com/edgexfoundry/cd-management/tree/git-label-sync) A script that synchronizes GitHub labels and milestones
@@ -111,7 +165,7 @@ docker container run \
 -it \
 -e http_proxy \
 -e https_proxy \
--v $PWD:/github3api \
+-v $PWD:/code \
 github3api:latest \
 /bin/sh
 ```

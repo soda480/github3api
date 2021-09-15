@@ -18,6 +18,7 @@ import logging
 from os import getenv
 from datetime import datetime
 
+from retrying import retry
 from rest3client import RESTclient
 from requests.exceptions import HTTPError
 from requests.exceptions import ChunkedEncodingError
@@ -29,6 +30,19 @@ logging.getLogger('urllib3.connectionpool').setLevel(logging.CRITICAL)
 HOSTNAME = 'api.github.com'
 VERSION = 'v3'
 DEFAULT_PAGE_SIZE = 30
+DEFAULT_GRAPHQL_PAGE_SIZE = 100
+
+
+class GraphqlRateLimitError(Exception):
+    """ GraphQL Rate Limit Error
+    """
+    pass
+
+
+class GraphqlError(Exception):
+    """ GraphQL Error
+    """
+    pass
 
 
 class GitHubAPI(RESTclient):
@@ -221,15 +235,82 @@ class GitHubAPI(RESTclient):
         return False
 
     @staticmethod
-    def _retry_chunkedencodingerror_error(exception):
-        """ return True if exception is ChunkedEncodingError, False otherwise
-            retry:
-                wait_fixed:10000
-                stop_max_attempt_number:120
+    def clear_cursor(query, cursor):
+        """ return query with all cursor references removed if no cursor
         """
-        logger.debug(f"checking if '{type(exception).__name__}' exception is a ChunkedEncodingError error")
-        if isinstance(exception, ChunkedEncodingError):
-            logger.info('ratelimit error encountered - retrying request in 10 seconds')
+        if not cursor:
+            query = query.replace('after: $cursor', '')
+            query = query.replace('$cursor: String!', '')
+        return query
+
+    @staticmethod
+    def sanitize_query(query):
+        """ sanitize query
+        """
+        return query.replace('\n', ' ').replace('  ', '').strip()
+
+    @staticmethod
+    def raise_if_error(response):
+        """ raise GraphqlRateLimitError if error exists in errors
+        """
+        if 'errors' in response:
+            logger.debug(f'errors detected in graphql response: {response}')
+            for error in response['errors']:
+                if error.get('type', '') == 'RATE_LIMITED':
+                    raise GraphqlRateLimitError(error.get('message', ''))
+            raise GraphqlError(response['errors'][0]['message'])
+
+    @staticmethod
+    def get_value(data, keys):
+        """ return value represented by keys dot notated string from data dictionary
+        """
+        if '.' in keys:
+            key, rest = keys.split('.', 1)
+            if key in data:
+                return GitHubAPI.get_value(data[key], rest)
+            raise KeyError(f'dictionary does not have key {key}')
+        else:
+            return data[keys]
+
+    def _get_graphql_page(self, query, variables, keys):
+        """ return generator that yields page from graphql response
+        """
+        variables['page_size'] = DEFAULT_GRAPHQL_PAGE_SIZE
+        variables['cursor'] = ''
+        while True:
+            updated_query = GitHubAPI.clear_cursor(query, variables['cursor'])
+            response = self.post('/graphql', json={'query': updated_query, 'variables': variables})
+            GitHubAPI.raise_if_error(response)
+            yield GitHubAPI.get_value(response, f'{keys}.edges')
+
+            page_info = GitHubAPI.get_value(response, f'{keys}.pageInfo')
+            has_next_page = page_info['hasNextPage']
+            if not has_next_page:
+                logger.debug('no more pages')
+                break
+            variables['cursor'] = page_info['endCursor']
+
+    def check_graphqlratelimiterror(exception):
+        """ return True if exception is GraphQL Rate Limit Error, False otherwise
+        """
+        logger.debug(f"checking if '{type(exception).__name__}' exception is a GraphqlRateLimitError")
+        if isinstance(exception, (GraphqlRateLimitError, TypeError)):
+            logger.debug('exception is a GraphqlRateLimitError - retrying request in 60 seconds')
             return True
-        logger.debug(f'exception is not a ratelimit error: {exception}')
+        logger.debug(f'exception is not a GraphqlRateLimitError: {exception}')
         return False
+
+    @retry(retry_on_exception=check_graphqlratelimiterror, wait_fixed=60000, stop_max_attempt_number=60)
+    def graphql(self, query, variables, page=False, keys=None):
+        """ execute graphql query and return response or paged response if page is True
+        """
+        query = GitHubAPI.sanitize_query(query)
+        if page:
+            response = self._get_graphql_page(query, variables, keys)
+        else:
+            updated_query = GitHubAPI.clear_cursor(query, variables.get('cursor'))
+            response = self.post('/graphql', json={'query': updated_query, 'variables': variables})
+            GitHubAPI.raise_if_error(response)
+        return response
+
+    check_graphqlratelimiterror = staticmethod(check_graphqlratelimiterror)
