@@ -21,6 +21,8 @@ from mock import Mock
 
 from github3api import GitHubAPI
 from github3api.githubapi import DEFAULT_PAGE_SIZE
+from github3api.githubapi import GraphqlRateLimitError
+from github3api.githubapi import GraphqlError
 
 from datetime import datetime
 
@@ -339,14 +341,6 @@ class TestGitHubAPI(unittest.TestCase):
         ]
         self.assertEqual(client.retries, expected_retries)
 
-    def test__retry_chunkedencodingerror_error_Should_Return_False_When_NotChunkEncodingError(self, *patches):
-
-        self.assertFalse(GitHubAPI._retry_chunkedencodingerror_error(Exception('test')))
-
-    def test__retry_chunkedencodingerror_error_Should_Return_True_When_ChunkEncodingError(self, *patches):
-
-        self.assertTrue(GitHubAPI._retry_chunkedencodingerror_error(ChunkedEncodingError()))
-
     def test__get_endpoint_from_url_Should_ReturnExpected_When_Called(self, *patches):
         client = GitHubAPI(bearer_token='bearer-token')
         result = client.get_endpoint_from_url('https://api.github.com/user/repos?page=2')
@@ -409,3 +403,182 @@ class TestGitHubAPI(unittest.TestCase):
         client = GitHubAPI(bearer_token='bearer-token')
         client.total('/user/repos?type=private&direction=asc')
         self.assertTrue(call('/user/repos?type=private&direction=asc&per_page=1', raw_response=True) in get_patch.mock_calls)
+
+    def test__clear_cursor_Should_ReturnExpected_When_NoCursor(self, *patches):
+        query = """
+          query ($query: String!, $page_size: Int!, $cursor: String!) {
+            search(query: $query, type: REPOSITORY, first: $page_size, after: $cursor) {
+              repositoryCount
+              pageInfo {
+                endCursor
+                hasNextPage
+              }
+              edges {
+                cursor
+                node {
+                  ... on Repository {
+                    nameWithOwner
+                  }
+                }
+              }
+            }
+          }
+        """
+        result = GitHubAPI.clear_cursor(query, '')
+        expected_result = """
+          query ($query: String!, $page_size: Int!, ) {
+            search(query: $query, type: REPOSITORY, first: $page_size, ) {
+              repositoryCount
+              pageInfo {
+                endCursor
+                hasNextPage
+              }
+              edges {
+                cursor
+                node {
+                  ... on Repository {
+                    nameWithOwner
+                  }
+                }
+              }
+            }
+          }
+        """
+        self.assertEqual(result, expected_result)
+
+    def test__clear_cursor_Should_ReturnExpected_When_Cursor(self, *patches):
+        query = """
+          query ($query: String!, $page_size: Int!, $cursor: String!) {
+            search(query: $query, type: REPOSITORY, first: $page_size, after: $cursor) {
+              repositoryCount
+              pageInfo {
+                endCursor
+                hasNextPage
+              }
+              edges {
+                cursor
+                node {
+                  ... on Repository {
+                    nameWithOwner
+                  }
+                }
+              }
+            }
+          }
+        """
+        result = GitHubAPI.clear_cursor(query, '--cursor--')
+        self.assertEqual(result, query)
+
+    def test__sanitize_query_Should_ReturnExpected_When_Called(self, *patches):
+        query = """
+        one
+        two
+        three
+        """
+        result = GitHubAPI.sanitize_query(query)
+        expected_result = 'one two three'
+        self.assertEqual(result, expected_result)
+
+    def test__raise_if_error_Should_RaiseGraphqlRateLimitError_When_Expected(self, *patches):
+        response = {
+            'errors': [{'type': 'RATE_LIMITED', 'message': 'ratelimit error'}]
+        }
+        with self.assertRaises(GraphqlRateLimitError):
+            GitHubAPI.raise_if_error(response)
+
+    def test__raise_if_error_Should_RaiseGraphqlError_When_Expected(self, *patches):
+        response = {
+            'errors': [{'type': 'other', 'message': 'other error'}]
+        }
+        with self.assertRaises(GraphqlError):
+            GitHubAPI.raise_if_error(response)
+
+    def test__raise_if_error_Should_DoNothing_When_NoError(self, *patches):
+        response = {
+            'data': {}
+        }
+        GitHubAPI.raise_if_error(response)
+
+    def test__get_value_Should_ReturnExpected_When_Called(self, *patches):
+        data = {
+            'python': {
+                'is': {
+                    'cool': 'yep'
+                }
+            }
+        }
+        keys = 'python.is.cool'
+        result = GitHubAPI.get_value(data, keys)
+        expected_result = 'yep'
+        self.assertEqual(result, expected_result)
+
+    def test__get_value_Should_ReturnKeyError_When_Expected(self, *patches):
+        data = {
+            'python': {
+                'is': {
+                    'cool': 'yep'
+                }
+            }
+        }
+        keys = 'x.y.z'
+        with self.assertRaises(KeyError):
+            GitHubAPI.get_value(data, keys)
+
+    def test__get_value_Should_ReturnExpected_When_NoDot(self, *patches):
+        data = {
+            'cool': 'yep'
+        }
+        keys = 'cool'
+        result = GitHubAPI.get_value(data, keys)
+        expected_result = 'yep'
+        self.assertEqual(result, expected_result)
+
+    @patch('github3api.GitHubAPI.clear_cursor')
+    @patch('github3api.GitHubAPI.raise_if_error')
+    @patch('github3api.GitHubAPI.post')
+    @patch('github3api.GitHubAPI.get_value')
+    def test__get_graphql_page_Should_YieldExpected_When_Called(self, get_value_patch, *patches):
+        get_value_patch.side_effect = [
+            ['page1', 'page2'],
+            {'hasNextPage': True, 'endCursor': 'cursor1'},
+            ['page3', 'page4'],
+            {'hasNextPage': False}
+        ]
+        client = GitHubAPI(bearer_token='bearer-token')
+        query = '--query--'
+        variables = {'key1': 'value1'}
+        keys = 'some.keys'
+        result = client._get_graphql_page(query, variables, keys)
+        self.assertEqual(next(result), ['page1', 'page2'])
+        self.assertEqual(next(result), ['page3', 'page4'])
+        with self.assertRaises(StopIteration):
+            next(result)
+
+    def test__check_graphqlratelimiterror_Should_ReturnTrue_When_Expected(self, *patches):
+
+        self.assertTrue(GitHubAPI.check_graphqlratelimiterror(GraphqlRateLimitError('ratelimit error')))
+
+    def test__check_graphqlratelimiterror_Should_ReturnFalse_When_Expected(self, *patches):
+
+        self.assertFalse(GitHubAPI.check_graphqlratelimiterror(KeyError('key error')))
+
+    @patch('github3api.GitHubAPI.sanitize_query')
+    @patch('github3api.GitHubAPI._get_graphql_page')
+    def test__graphql_Should_ReturnExpected_When_Page(self, get_graphql_page_patch, *patches):
+        client = GitHubAPI(bearer_token='bearer-token')
+        query = '--query--'
+        variables = {'key1': 'value1'}
+        keys = 'some.keys'
+        result = client.graphql(query, variables, page=True, keys=keys)
+        self.assertEqual(result, get_graphql_page_patch.return_value)
+
+    @patch('github3api.GitHubAPI.sanitize_query')
+    @patch('github3api.GitHubAPI.clear_cursor')
+    @patch('github3api.GitHubAPI.raise_if_error')
+    @patch('github3api.GitHubAPI.post')
+    def test__graphql_Should_ReturnExpected_When_Called(self, post_patch, *patches):
+        client = GitHubAPI(bearer_token='bearer-token')
+        query = '--query--'
+        variables = {'key1': 'value1'}
+        result = client.graphql(query, variables)
+        self.assertEqual(result, post_patch.return_value)
