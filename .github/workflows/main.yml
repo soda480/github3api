@@ -9,28 +9,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-20.04
-    container: python:3.6-alpine
+    container: python:3.9-slim
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install required packages
-      run: apk add git gcc
-
     - name: Install pybuilder
-      run: pip install pybuilder==0.11.17
+      run: pip install pybuilder
 
     - name: Install dependencies
       run: pyb install_dependencies
 
     - name: Execute build
-      run: pyb install
+      run: pyb -X
 
     - name: Install Codecov requirements
       run: |
-        apk update
-        apk add bash curl
-        sed -e 's,filename="github3api/,filename="src/main/python/github3api/,g' target/reports/coverage.xml > coverage.xml
+        apt-get update
+        apt-get install -y bash curl
+        sed -e 's,filename="github3api/,filename="src/main/python/github3api/,g' target/reports/github3api_coverage.xml > coverage.xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
