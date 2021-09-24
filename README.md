@@ -2,7 +2,9 @@
 [![GitHub Workflow Status](https://github.com/soda480/github3api/workflows/build/badge.svg)](https://github.com/soda480/github3api/actions)
 [![Code Coverage](https://codecov.io/gh/soda480/github3api/branch/master/graph/badge.svg)](https://codecov.io/gh/soda480/github3api)
 [![Code Grade](https://www.code-inspector.com/project/13337/status/svg)](https://frontend.code-inspector.com/project/13337/dashboard)
+[![vulnerabilities](https://img.shields.io/badge/vulnerabilities-None-brightgreen)](https://pypi.org/project/bandit/)
 [![PyPI version](https://badge.fury.io/py/github3api.svg)](https://badge.fury.io/py/github3api)
+[![python](https://img.shields.io/badge/python-3.9-teal)](https://www.python.org/downloads/)
 
 An advanced REST client for the GitHub API. It is a subclass of [rest3client](https://pypi.org/project/rest3client/) tailored for the GitHub API with special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over (for paged requests). By default all requests will be retried if ratelimit request limit is reached.
 
@@ -45,7 +47,7 @@ pip install github3api
 >>> client.post('/user/repos', json={'name': 'test-repo1'})['full_name']
 'soda480/test-repo1'
 
->>> client.post('/repos/soda480/test-repo1/labels', json={'name': 'label1', 'color': '#006b75'})['url']
+>>> client.post('/repos/soda480/test-repo1/labels', json={'name': 'label1'})['url']
 'https://api.github.com/repos/soda480/test-repo1/labels/label1'
 ```
 
@@ -143,6 +145,7 @@ For Graphql paged queries:
 
 * [soda480/github-contributions](https://github.com/soda480/github-contributions) A script to get contribution metrics for all members of a GitHub organization using the GitHub GraphQL API
 
+* [edgexfoundry/edgex-dev-badge](https://github.com/edgexfoundry/edgex-dev-badge) Rules based GitHub badge scanner
 
 ### Development ###
 
