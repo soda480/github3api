@@ -170,7 +170,7 @@ docker container run \
 -e https_proxy \
 -v $PWD:/code \
 github3api:latest \
-/bin/sh
+/bin/bash
 ```
 
 Execute the build:

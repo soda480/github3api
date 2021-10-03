@@ -13,15 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 FROM python:3.9-slim AS build-image
 ENV PYTHONDONTWRITEBYTECODE 1
 WORKDIR /code
 COPY . /code/
 RUN pip install pybuilder
-RUN pyb install_dependencies
 RUN pyb install
-
 
 FROM python:3.9-alpine
 ENV PYTHONDONTWRITEBYTECODE 1
