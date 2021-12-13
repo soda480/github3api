@@ -64,7 +64,7 @@ pip install github3api
 
 `GET all` directive - Get all pages from an endpoint and return list containing only matching attributes
 ```python
-for repo in client.get('/user/repos', _get='all', _attributes=['full_name']):
+for repo in client.get('/orgs/edgexfoundry/repos', _get='all', _attributes=['full_name']):
     print(repo['full_name'])
 ```
 
@@ -78,7 +78,6 @@ for page in client.get('/user/repos', _get='page'):
 `total` - Get total number of resources at given endpoint
 ```python
 print(client.total('/user/repos'))
-6218
 ```
 
 `graphql` - execute graphql query
