@@ -1,5 +1,7 @@
 name: build
 on:
+  schedule:
+  - cron: "0 8 * * *"
   push:
     branches:
       - '**'
@@ -9,25 +11,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-20.04
-    container: python:3.9-slim
-
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install pybuilder
-      run: pip install pybuilder
-
-    - name: Execute build
-      run: pyb
-
-    - name: Install Codecov requirements
+    - name: Build Docker image
       run: |
-        apt-get update
-        apt-get install -y bash curl
-        sed -e 's,filename="github3api/,filename="src/main/python/github3api/,g' target/reports/github3api_coverage.xml > coverage.xml
+        docker image build --target build-image -t github3api:latest .
+
+    - name: Prepare coverage
+      run: |
+        ID=$(docker create github3api)
+        docker cp $ID:/code/target/reports/github3api_coverage.xml github3api_coverage.xml
+        sed -i -e 's,filename="github3api/,filename="src/main/python/github3api/,g' github3api_coverage.xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        file: coverage.xml
+        file: github3api_coverage.xml
