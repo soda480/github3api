@@ -9,23 +9,48 @@ on:
     branches:
       - main
 jobs:
-  build:
+  build-images:
+    strategy:
+      matrix:
+        version: ['3.7', '3.8', '3.9', '3.10']
+    name: Build Python Docker images
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Build Docker image
-      run: |
-        docker image build --target build-image -t github3api:latest .
-
-    - name: Prepare coverage
-      run: |
-        ID=$(docker create github3api)
-        docker cp $ID:/code/target/reports/github3api_coverage.xml github3api_coverage.xml
-        sed -i -e 's,filename="github3api/,filename="src/main/python/github3api/,g' github3api_coverage.xml
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: github3api_coverage.xml
+      - uses: actions/checkout@v3
+      - name: build github3api ${{ matrix.version }} image
+        run:
+          docker image build --target build-image --build-arg PYTHON_VERSION=${{ matrix.version }} -t github3api:${{ matrix.version }} .
+      - name: save github3api ${{ matrix.version }} image
+        if: ${{ matrix.version == '3.9' }}
+        run: |
+          mkdir -p images
+          docker save --output images/github3api-${{ matrix.version }}.tar github3api:${{ matrix.version }}
+      - name: upload github3api ${{ matrix.version }} image artifact
+        if: ${{ matrix.version == '3.9' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: image
+          path: images/github3api-${{ matrix.version }}.tar
+  coverage:
+    name: Publish Code Coverage Report
+    needs: build-images
+    runs-on: ubuntu-20.04
+    steps:
+      - name: download image artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: image
+          path: images/
+      - name: load image
+        run:
+          docker load --input images/github3api-3.9.tar
+      - name: prepare report
+        run: |
+          ID=$(docker create github3api:3.9)
+          docker cp $ID:/code/target/reports/github3api_coverage.xml github3api_coverage.xml
+          sed -i -e 's,filename="github3api/,filename="src/main/python/github3api/,g' github3api_coverage.xml
+      - name: upload report
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: github3api_coverage.xml

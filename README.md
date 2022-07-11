@@ -1,22 +1,22 @@
-# github3api #
+# github3api
 [![GitHub Workflow Status](https://github.com/soda480/github3api/workflows/build/badge.svg)](https://github.com/soda480/github3api/actions)
 [![Code Coverage](https://codecov.io/gh/soda480/github3api/branch/master/graph/badge.svg)](https://codecov.io/gh/soda480/github3api)
 [![Code Grade](https://api.codiga.io/project/13337/status/svg)](https://frontend.code-inspector.com/project/13337/dashboard)
 [![vulnerabilities](https://img.shields.io/badge/vulnerabilities-None-brightgreen)](https://pypi.org/project/bandit/)
 [![PyPI version](https://badge.fury.io/py/github3api.svg)](https://app.codiga.io/public/project/13337/github3api/dashboard)
-[![python](https://img.shields.io/badge/python-3.9-teal)](https://www.python.org/downloads/)
+[![python](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9%20%7C%203.10-teal)](https://www.python.org/downloads/)
 
 An advanced REST client for the GitHub API. It is a subclass of [rest3client](https://pypi.org/project/rest3client/) tailored for the GitHub API with special optional directives for GET requests that can return all pages from an endpoint or return a generator that can be iterated over (for paged requests). By default all requests will be retried if ratelimit request limit is reached.
 
 Support for executing Graphql queries including paging; Graphql queries are also retried if Graphql rate limiting occurs.
 
 
-### Installation ###
+### Installation
 ```bash
 pip install github3api
 ```
 
-### Example Usage ###
+### Example Usage
 
 ```python
 >>> from github3api import GitHubAPI
@@ -132,7 +132,7 @@ For Graphql paged queries:
 - the keys method argument is a dot annotated string that is used to access the resulting dictionary response object
 - the query is retried every 60 seconds (for up to an hour) if a ratelimit occur
 
-### Projects using `github3api` ###
+### Projects using `github3api`
 
 * [edgexfoundry/sync-github-labels](https://github.com/edgexfoundry/cd-management/tree/git-label-sync) A script that synchronizes GitHub labels and milestones
 
@@ -146,7 +146,7 @@ For Graphql paged queries:
 
 * [edgexfoundry/edgex-dev-badge](https://github.com/edgexfoundry/edgex-dev-badge) Rules based GitHub badge scanner
 
-### Development ###
+### Development
 
 Ensure the latest version of Docker is installed on your development server. Fork and clone the repository.
 
@@ -169,7 +169,7 @@ docker container run \
 -e https_proxy \
 -v $PWD:/code \
 github3api:latest \
-/bin/bash
+bash
 ```
 
 Execute the build:
