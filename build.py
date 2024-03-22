@@ -30,7 +30,7 @@ name = 'github3api'
 authors = [Author('Emilio Reyes', 'emilio.reyes@intel.com')]
 summary = 'An advanced REST client for the GitHub API'
 url = 'https://github.com/soda480/github3api'
-version = '0.3.1'
+version = '0.3.2'
 default_task = [
     'clean',
     'analyze',
