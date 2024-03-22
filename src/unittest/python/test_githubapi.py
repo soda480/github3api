@@ -109,17 +109,23 @@ class TestGitHubAPI(unittest.TestCase):
 
         self.assertFalse(GitHubAPI.retry_ratelimit_error(Exception('test')))
 
-    def test__retry_ratelimit_error_Should_Return_True_When_HttpErrorNoStatusCodeMatch(self, *patches):
+    def test__retry_ratelimit_error_Should_Return_False_When_HttpErrorNoStatusCodeMatch(self, *patches):
         response_mock = Mock(status_code=404)
         http_error_mock = HTTPError(Mock())
         http_error_mock.response = response_mock
         self.assertFalse(GitHubAPI.retry_ratelimit_error(http_error_mock))
 
     def test__retry_ratelimit_error_Should_Return_True_When_Match(self, *patches):
-        response_mock = Mock(status_code=403)
+        response_mock = Mock(status_code=403, reason='API Rate Limit Exceeded')
         http_error_mock = HTTPError(Mock())
         http_error_mock.response = response_mock
         self.assertTrue(GitHubAPI.retry_ratelimit_error(http_error_mock))
+
+    def test__retry_ratelimit_error_Should_Return_False_When_403NotRateLimit(self, *patches):
+        response_mock = Mock(status_code=403, reason='Forbidden')
+        http_error_mock = HTTPError(Mock())
+        http_error_mock.response = response_mock
+        self.assertFalse(GitHubAPI.retry_ratelimit_error(http_error_mock))
 
     @patch('github3api.githubapi.GitHubAPI.log_ratelimit')
     @patch('github3api.githubapi.GitHubAPI.get_ratelimit')
