@@ -153,7 +153,8 @@ class GitHubAPI(RESTclient):
         """
         logger.debug(f"checking if '{type(exception).__name__}' exception is a ratelimit error")
         if isinstance(exception, HTTPError):
-            if exception.response.status_code == 403:
+            logger.debug(exception.response.reason)
+            if exception.response.status_code == 403 and 'rate limit exceeded' in exception.response.reason.lower():
                 logger.info('ratelimit error encountered - retrying request in 60 seconds')
                 return True
         logger.debug(f'exception is not a ratelimit error: {exception}')
